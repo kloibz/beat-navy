@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Army–Navy Countdown</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14130f;
+    --panel: #1f1d17;
+    --gold: #d6b04c;
+    --text: #efe8d6;
+    --muted: #9a927c;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { height: 100%; }
+
+  body { min-height: 100%; margin: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Source Serif 4", Georgia, serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+  }
+
+  h1 {
+    font-family: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
+    font-weight: 400;
+    font-size: clamp(1.8rem, 5vw, 3.2rem);
+    letter-spacing: 0.08em;
+    margin: 0 0 8px;
+    color: var(--gold);
+  }
+
+  .sub {
+    margin: 0 0 40px;
+    color: var(--muted);
+    font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+  }
+
+  .timer {
+    display: flex;
+    gap: clamp(8px, 2vw, 20px);
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .unit {
+    background: var(--panel);
+    border: 2px solid var(--gold);
+    border-radius: 6px;
+    min-width: clamp(76px, 18vw, 150px);
+    padding: clamp(12px, 2.5vw, 24px) 8px clamp(8px, 1.5vw, 14px);
+  }
+
+  .num {
+    display: block;
+    font-family: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
+    font-size: clamp(3rem, 12vw, 7.5rem);
+    line-height: 1;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .label {
+    display: block;
+    margin-top: 6px;
+    font-size: clamp(0.75rem, 1.8vw, 1rem);
+    color: var(--gold);
+  }
+
+  .tagline {
+    margin: 48px 0 0;
+    max-width: 30ch;
+    font-size: clamp(1.2rem, 3.4vw, 2rem);
+    font-style: italic;
+    line-height: 1.35;
+  }
+
+  .tagline strong {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--gold);
+  }
+
+  #scene {
+    display: block;
+    width: min(100%, 768px);
+    height: auto;
+    margin-top: 32px;
+    background: #16212e;
+    border: 2px solid var(--gold);
+    border-radius: 6px;
+    image-rendering: pixelated;
+  }
+</style>
+</head>
+<body>
+  <h1>Army–Navy Game Countdown</h1>
+  <p class="sub">Kickoff: Saturday, December 12, 2026, 3:00 PM ET</p>
+
+  <div class="timer" role="timer" aria-live="off">
+    <div class="unit"><span class="num" id="days">--</span><span class="label">Days</span></div>
+    <div class="unit"><span class="num" id="hours">--</span><span class="label">Hours</span></div>
+    <div class="unit"><span class="num" id="minutes">--</span><span class="label">Minutes</span></div>
+    <div class="unit"><span class="num" id="seconds">--</span><span class="label">Seconds</span></div>
+  </div>
+
+  <p class="tagline" id="tagline"></p>
+
+  <canvas id="scene" width="192" height="80" role="img"
+    aria-label="Pixel animation of a sailing frigate being sunk by an Apache helicopter or an Abrams tank"></canvas>
+
+  <script>
+    // 3:00 PM Eastern Standard Time (UTC-5) on Dec 12, 2026 = 20:00 UTC.
+    // Using a UTC timestamp means it's correct no matter where the visitor is.
+    var KICKOFF = Date.UTC(2026, 11, 12, 20, 0, 0);
+
+    var els = {
+      days: document.getElementById("days"),
+      hours: document.getElementById("hours"),
+      minutes: document.getElementById("minutes"),
+      seconds: document.getElementById("seconds"),
+      tagline: document.getElementById("tagline")
+    };
+
+    var lastDays = null;
+
+    function pad(n) { return String(n).padStart(2, "0"); }
+
+    function tick() {
+      var diff = KICKOFF - Date.now();
+
+      if (diff <= 0) {
+        els.days.textContent = "00";
+        els.hours.textContent = "00";
+        els.minutes.textContent = "00";
+        els.seconds.textContent = "00";
+        els.tagline.textContent = "It's game time. Go Army, beat Navy!";
+        clearInterval(timer);
+        return;
+      }
+
+      var totalSeconds = Math.floor(diff / 1000);
+      var days = Math.floor(totalSeconds / 86400);
+      var hours = Math.floor((totalSeconds % 86400) / 3600);
+      var minutes = Math.floor((totalSeconds % 3600) / 60);
+      var seconds = totalSeconds % 60;
+
+      if (days !== lastDays) {
+        lastDays = days;
+        if (window.startScene) window.startScene(days);
+      }
+
+      els.days.textContent = days;
+      els.hours.textContent = pad(hours);
+      els.minutes.textContent = pad(minutes);
+      els.seconds.textContent = pad(seconds);
+
+      els.tagline.innerHTML =
+        "There are <strong>" + days + "</strong> and a butt days until Army beats the heck out of Navy!";
+    }
+
+    // ---------- Pixel scene: a frigate meets an Apache (even days) or an Abrams (odd days) ----------
+    (function () {
+      var canvas = document.getElementById("scene");
+      var ctx = canvas.getContext("2d");
+      var W = canvas.width, H = canvas.height;   // 192 x 80 "pixels", scaled up by CSS
+      var WATER = 56;                             // resting water line
+      var reduceMotion = window.matchMedia &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      var C = {
+        sky: "#16212e", sky2: "#1e2d42", sky3: "#2b3b55", star: "#c9d4e0",
+        water1: "#1b4767", water2: "#2b6a93", crest: "#7fb6d6", foam: "#d7ecf5",
+        cream: "#e8dcc0", creamShade: "#b9a57e", hull: "#5a3a1f", hullDark: "#3a2414",
+        gold: "#d6b04c", black: "#14110d", red: "#b3302a",
+        olive: "#4b5a3a", tan: "#d2b27a", tanDark: "#9c7d4a", oliveDark: "#2f3a25", glass: "#8fd0ea",
+        grey: "#555b5e", greyLight: "#9aa2a6", rotor: "#8a9397", dark: "#2c3133",
+        smoke: "#7c8386", smokeDark: "#3d4346", sand: "#9a8450", rock: "#4d412b",
+        fire1: "#e63b1f", fire2: "#f08a1e", fire3: "#ffe27a", white: "#fff6c8"
+      };
+
+      // Each shot: frame it fires, and where it lands on the ship (in ship-sprite coordinates)
+      var SHOTS = [
+        { t: 44, tx: 30, ty: 17, big: false },
+        { t: 52, tx: 20, ty: 12, big: false },
+        { t: 60, tx: 24, ty: 23, big: true }
+      ];
+      var LAST_FRAME = 118;
+
+      function hash(a, b) {
+        var h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) | 0;
+        h = Math.imul(h ^ (h >>> 13), 1274126177);
+        return (h ^ (h >>> 16)) >>> 0;
+      }
+
+      function rect(x, y, w, h, c) {
+        ctx.fillStyle = c;
+        ctx.fillRect(Math.round(x), Math.round(y), w, h);
+      }
+
+      // Draw a list of [x, y, w, h, color] rectangles; optional per-column shear tilts the sprite.
+      function drawOps(ops, ox, oy, shear, cx) {
+        for (var i = 0; i < ops.length; i++) {
+          var o = ops[i];
+          if (!shear) { rect(ox + o[0], oy + o[1], o[2], o[3], o[4]); continue; }
+          for (var k = 0; k < o[2]; k++) {
+            var col = o[0] + k;
+            rect(ox + col, oy + o[1] + Math.round((col - cx) * shear), 1, o[3], o[4]);
+          }
+        }
+      }
+
+      // ----- Sprites -----
+      var frigate = (function () {
+        var o = [];
+        function r(x, y, w, h, c) { o.push([x, y, w, h, c]); }
+        // masts
+        r(10, 6, 1, 16, C.hullDark); r(22, 1, 1, 21, C.hullDark); r(34, 8, 1, 14, C.hullDark);
+        // fore sails
+        r(7, 7, 7, 5, C.cream);   r(7, 11, 7, 1, C.creamShade);
+        r(5, 13, 11, 6, C.cream); r(5, 18, 11, 1, C.creamShade);
+        // main sails
+        r(17, 2, 9, 6, C.cream);  r(17, 7, 9, 1, C.creamShade);
+        r(15, 9, 13, 5, C.cream); r(15, 13, 13, 1, C.creamShade);
+        r(15, 15, 13, 6, C.cream); r(15, 20, 13, 1, C.creamShade);
+        // mizzen sails
+        r(31, 9, 7, 5, C.cream);  r(31, 13, 7, 1, C.creamShade);
+        r(29, 15, 11, 6, C.cream); r(29, 20, 11, 1, C.creamShade);
+        // hull
+        r(2, 22, 41, 1, C.hullDark);
+        r(2, 23, 41, 1, C.hull);
+        r(3, 24, 39, 1, C.gold);
+        r(4, 25, 37, 1, C.hull);
+        r(5, 26, 35, 1, C.hull);
+        r(7, 27, 31, 1, C.hullDark);
+        r(10, 28, 25, 1, C.hullDark);
+        r(14, 29, 17, 1, C.hullDark);
+        for (var i = 0; i < 9; i++) r(7 + 4 * i, 25, 2, 1, C.black);   // gun ports
+        // stern castle and bowsprit
+        r(2, 19, 8, 1, C.hullDark); r(2, 20, 8, 2, C.hull);
+        r(4, 20, 1, 1, C.gold); r(6, 20, 1, 1, C.gold);
+        r(42, 21, 2, 1, C.hullDark); r(44, 20, 2, 1, C.hullDark); r(46, 19, 2, 1, C.hullDark);
+        // pennants
+        r(11, 6, 3, 2, C.red); r(23, 1, 4, 2, C.red); r(35, 8, 3, 1, C.red);
+        return o;
+      })();
+
+      function apacheOps(fr) {            // faces left
+        var o = [];
+        function r(x, y, w, h, c) { o.push([x, y, w, h, c]); }
+        if (fr % 2 === 0) r(3, 0, 19, 1, C.rotor); else r(7, 0, 11, 1, C.rotor);
+        r(12, 1, 1, 2, C.grey);
+        r(5, 3, 14, 5, C.olive); r(2, 5, 3, 3, C.olive); r(5, 7, 14, 1, C.oliveDark);
+        r(3, 4, 4, 2, C.glass); r(4, 3, 3, 1, C.glass);
+        r(12, 2, 6, 1, C.oliveDark);
+        r(19, 4, 11, 2, C.olive); r(28, 1, 2, 3, C.oliveDark);
+        if (fr % 2 === 0) r(31, 0, 1, 6, C.rotor); else r(31, 1, 1, 4, C.rotor);
+        r(9, 8, 8, 1, C.oliveDark); r(10, 9, 6, 2, C.grey); r(9, 9, 1, 2, C.greyLight);
+        r(6, 8, 1, 4, C.dark); r(14, 8, 1, 4, C.dark); r(4, 12, 13, 1, C.dark);
+        r(1, 8, 3, 1, C.dark);
+        return o;
+      }
+
+      function tankOps(fr, recoil) {      // faces left
+        var o = [];
+        function r(x, y, w, h, c) { o.push([x, y, w, h, c]); }
+        r(2, 10, 32, 4, C.dark);
+        for (var i = 0; i < 10; i++) r(4 + 3 * i, 12, 2, 1, (fr + i) % 2 ? C.grey : C.greyLight);
+        r(3, 7, 30, 3, C.tan); r(3, 9, 30, 1, C.tanDark);
+        r(12, 3, 17, 4, C.tan); r(12, 6, 17, 1, C.tanDark); r(24, 4, 7, 3, C.tan);
+        r(20, 2, 4, 1, C.tanDark); r(23, 1, 3, 1, C.tanDark);
+        r(recoil, 4, 10 - recoil, 1, C.tanDark);
+        r(10, 3, 3, 4, C.tanDark);
+        return o;
+      }
+
+      // ----- Positions over time (t = animation frame) -----
+      function shipX(t) {
+        if (t < 30) return -48 + 3 * t;           // sailing in
+        if (t < 44) return 39 + 2 * (t - 29);     // vehicle arrives
+        if (t < 57) return 67 + (t - 43);         // slowing under fire
+        return 80;
+      }
+      function apachePos(t) {
+        var x = t < 104 ? Math.max(126, 200 - (t - 29) * 6) : 126 + (t - 103) * 6;
+        return { x: x, y: 10 + Math.round(Math.sin(t * 1.3)) };
+      }
+      function tankX(t) {
+        return t < 104 ? Math.max(154, 194 - (t - 29) * 3) : 154 + (t - 103) * 3;
+      }
+
+      // ----- Scenery -----
+      function drawSky() {
+        rect(0, 0, W, 24, C.sky);
+        rect(0, 24, W, 16, C.sky2);
+        rect(0, 40, W, WATER - 36, C.sky3);
+        for (var i = 0; i < 18; i++) rect(hash(i, 1) % W, hash(i, 2) % 22, 1, 1, C.star);
+      }
+
+      function surface(x, fr) {
+        return WATER + Math.round(1.3 * Math.sin(x * 0.2 + fr * 0.9) + 0.7 * Math.sin(x * 0.47 - fr * 0.6));
+      }
+
+      function drawWater(fr) {
+        var x, y;
+        for (x = 0; x < W; x++) {
+          var s = surface(x, fr);
+          rect(x, s, 1, H - s, C.water1);
+          rect(x, s, 1, 1, C.crest);
+          rect(x, s + 1, 1, 1, C.water2);
+        }
+        for (y = WATER + 4; y < H; y++) {
+          for (x = 0; x < W; x += 2) {
+            if (hash(x >> 1, y * 31 + fr) % 17 === 0) rect(x, y, 2, 1, C.water2);
+          }
+        }
+      }
+
+      function drawLand() {
+        for (var x = 142; x < W; x++) {
+          var top = WATER + 4 - Math.min(7, x - 142);
+          rect(x, top, 1, H - top, C.rock);
+          rect(x, top, 1, 2, C.sand);
+        }
+      }
+
+      // ----- Actors -----
+      function drawShip(t) {
+        var tilt = Math.max(0, Math.min(0.55, (t - 58) * 0.035));
+        var sink = Math.max(0, t - 64) * 0.9;
+        if (sink > 36) return;
+        var x = shipX(t);
+        var y = WATER - 27 + Math.round(Math.sin(t * 0.9)) + Math.round(sink);
+        drawOps(frigate, x, y, tilt, 24);
+
+        if (t >= 49 && t < 92) {                       // fire and smoke on deck
+          var maxH = t >= 57 ? 6 : 3;
+          for (var col = 14; col <= 36; col++) {
+            var hv = hash(col, t);
+            if (hv % 3 === 0) continue;
+            var hh = 1 + (hv >>> 4) % maxH;
+            var base = y + 21 + Math.round((col - 24) * tilt);
+            for (var k = 0; k < hh; k++) {
+              rect(x + col, base - k, 1, 1, k === 0 ? C.fire3 : (k < 3 ? C.fire2 : C.fire1));
+            }
+            if (t >= 57 && (hv >>> 8) % 4 === 0) {
+              rect(x + col, base - hh - 1 - ((hv >>> 12) % 4), 1, 1, C.smoke);
+            }
+          }
+        }
+      }
+
+      function drawApache(t) {
+        if (t < 30) return;
+        var p = apachePos(t);
+        if (p.x < W) drawOps(apacheOps(f), p.x, p.y, 0, 0);
+      }
+
+      function drawTank(t) {
+        if (t < 30) return;
+        var x = tankX(t);
+        if (x >= W) return;
+        var recoil = 0;
+        for (var i = 0; i < SHOTS.length; i++) {
+          var d = t - SHOTS[i].t;
+          if (d === 0 || d === 1) recoil = 2;
+        }
+        drawOps(tankOps(f, recoil), x, 39, 0, 0);
+        if (t < 44 || t >= 104) {                      // dust while driving
+          for (var j = 0; j < 3; j++) {
+            rect(x + 36 + hash(j, t) % 6, 50 + hash(j, t + 9) % 3, 1, 1, C.sand);
+          }
+        }
+      }
+
+      function drawExplosion(cx, cy, stage, big) {
+        var r = Math.round([2, 4, 5, 4][stage] * (big ? 1.7 : 1));
+        for (var dy = -r; dy <= r; dy++) {
+          for (var dx = -r; dx <= r; dx++) {
+            var hv = hash(dx + 50, dy + 50 + stage * 7);
+            var d = Math.sqrt(dx * dx + dy * dy) + (hv % 3) * 0.45;
+            if (d > r) continue;
+            var q = d / r, c;
+            if (stage === 3) c = (hv & 1) ? C.smoke : C.smokeDark;
+            else if (q < 0.35 && stage < 2) c = C.white;
+            else if (q < 0.45) c = C.fire3;
+            else if (q < 0.75) c = C.fire2;
+            else c = stage === 2 ? C.smokeDark : C.fire1;
+            rect(cx + dx, cy + dy - (stage === 3 ? 3 : 0), 1, 1, c);
+          }
+        }
+        if (stage === 1 || stage === 2) {              // flying splinters
+          for (var i = 0; i < 6; i++) {
+            var ang = (hash(i, 1) % 628) / 100;
+            var rad = r + 2 + stage * 2 + hash(i, 2) % 3;
+            rect(cx + Math.round(Math.cos(ang) * rad), cy + Math.round(Math.sin(ang) * rad), 1, 1,
+                 i % 2 ? C.hullDark : C.cream);
+          }
+        }
+      }
+
+      function drawShots(t, tank) {
+        for (var i = 0; i < SHOTS.length; i++) {
+          var s = SHOTS[i];
+          var d = t - s.t;
+          var hitT = s.t + 4;
+          var ix = shipX(hitT) + s.tx;
+          var iy = WATER - 27 + s.ty;
+          var m;
+          if (tank) { m = { x: tankX(s.t), y: 43 }; }
+          else { var ap = apachePos(s.t); m = { x: ap.x + 9, y: ap.y + 10 }; }
+
+          if (d === 0) {                               // muzzle flash
+            if (tank) {
+              rect(m.x - 5, m.y - 1, 5, 3, C.fire3);
+              rect(m.x - 3, m.y - 2, 3, 5, C.fire2);
+              rect(m.x - 3, m.y, 3, 1, C.white);
+            } else {
+              rect(m.x - 2, m.y - 1, 3, 3, C.fire3);
+            }
+          } else if (d === 1) {                        // muzzle smoke
+            if (tank) rect(m.x - 4, m.y - 1, 3, 3, C.smoke);
+            else rect(m.x - 1, m.y + 1, 3, 2, C.smoke);
+          }
+
+          if (d >= 1 && d <= 3) {                      // projectile in flight
+            var ux = ix - m.x, uy = iy - m.y;
+            var len = Math.sqrt(ux * ux + uy * uy);
+            ux /= len; uy /= len;
+            var px = m.x + (ix - m.x) * d / 4;
+            var py = m.y + (iy - m.y) * d / 4;
+            rect(px, py, 2, 2, tank ? C.fire3 : C.white);
+            rect(px - ux * 3, py - uy * 3, 1, 1, tank ? C.fire2 : C.smoke);
+            rect(px - ux * 6, py - uy * 6, 1, 1, C.smoke);
+          }
+
+          var e = t - hitT;                            // impact
+          if (e >= 0 && e <= (s.big ? 4 : 3)) drawExplosion(ix, iy, Math.min(e, 3), s.big);
+        }
+      }
+
+      function drawFoam(t) {                           // splash while the ship goes down
+        if (t < 64 || t > 100) return;
+        var span = Math.min(28, 12 + Math.round((t - 64) * 0.5));
+        for (var x = 104 - span; x <= 104 + span; x++) {
+          var hv = hash(x, t);
+          if (hv % 5 === 0) rect(x, surface(x, f) - 1 - ((hv >>> 5) % 2), 1, 1, C.foam);
+        }
+      }
+
+      // ----- Frame loop: ~8 frames per second for a choppy stop-motion feel -----
+      var f = 0, anim = null, tankDay = false;
+
+      function frame() {
+        var t = -1;
+        if (anim) {
+          t = f - anim.start;
+          if (t > LAST_FRAME) { anim = null; t = -1; }
+        }
+        drawSky();
+        if (t >= 0) drawShip(t);
+        drawWater(f);
+        if (tankDay) drawLand();
+        if (t >= 0) {
+          if (anim.tank) drawTank(t); else drawApache(t);
+          drawShots(t, anim.tank);
+          drawFoam(t);
+        }
+        f++;
+      }
+
+      // Called whenever the day counter changes (and once on page load).
+      // Odd day totals send the Abrams tank; even day totals send the Apache.
+      window.startScene = function (days) {
+        tankDay = days % 2 === 1;
+        // Preview helper: add ?preview=apache or ?preview=tank to the page address
+        var pv = /[?&]preview=(apache|tank)/.exec(window.location ? window.location.search : "");
+        if (pv) tankDay = pv[1] === "tank";
+        if (reduceMotion) frame();
+        else anim = { start: f, tank: tankDay };
+      };
+
+      if (reduceMotion) frame();
+      else setInterval(frame, 125);
+    })();
+
+    var timer = setInterval(tick, 1000);
+    tick();
+  </script>
+</body>
+</html>
